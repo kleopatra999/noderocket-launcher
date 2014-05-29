@@ -1,6 +1,5 @@
 // We load our dependencies - node's events, johnny-five, and underscore utilities.
-
-var events = require('events');
+var EventEmitter = require('events').EventEmitter;
 var j5 = require('johnny-five');
 var _ = require('underscore');
 
@@ -38,31 +37,28 @@ function Launcher(opts) {
 
     this.board = this.config.board == null ? new j5.Board() : this.config.board;
 
-    // Set up this class as an event emitter.
-
-    events.EventEmitter.call(this);
+    EventEmitter.call(this);
 
     // Create a variable that we can use in closures to reference this.
-
-    var thiz = this;
+    var self = this;
 
     this.board.on('ready', function() {
 
         // When the board is ready, create a sensor for the pressure sensor
         // and pins for the valves
 
-        thiz.pressureSensor = new j5.Sensor(thiz.config.pressureSensorPin);
-        thiz.fillValve = new j5.Pin(thiz.config.fillValvePin);
-        thiz.launchValve = new j5.Pin(thiz.config.launchValvePin);
+        self.pressureSensor = new j5.Sensor(self.config.pressureSensorPin);
+        self.fillValve = new j5.Pin(self.config.fillValvePin);
+        self.launchValve = new j5.Pin(self.config.launchValvePin);
 
         // Make sure the valves are closed
 
-        thiz.closeFill();
-        thiz.closeLaunch();
+        self.closeFill();
+        self.closeLaunch();
 
         // Handle data from the pressure sensor
 
-        thiz.pressureSensor.on('data', function() {
+        self.pressureSensor.on('data', function() {
             // the arduino reads voltage in increments of 1/1024 of 5 V
 
             var voltage = this.value * (5 / 1024);
@@ -74,27 +70,27 @@ function Launcher(opts) {
             // Use linear equation with configured slope and y intercept
             // to figure pressure
 
-            thiz.currentPsi = (res * thiz.config.pressure.slope) - thiz.config.pressure.yint;
+            self.currentPsi = (res * self.config.pressure.slope) - self.config.pressure.yint;
         });
 
         // signal that the launcher is ready
 
-        thiz.emit('launcher-ready', thiz.currentPsi);
+        self.emit('launcher-ready', self.currentPsi);
 
         // report the pressure data at regular intervals
 
         setInterval(function() {
-            thiz.emit('launcher-data', {
-                pressure: thiz.currentPsi
+            self.emit('launcher-data', {
+                pressure: self.currentPsi
             });
-        }, thiz.config.dataRate);
+        }, self.config.dataRate);
 
     });
 }
 
 // make Launcher an event emitter
 
-Launcher.prototype.__proto__ = events.EventEmitter.prototype;
+Launcher.prototype.__proto__ = EventEmitter.prototype;
 
 // basic functions to open and close each valve
 
